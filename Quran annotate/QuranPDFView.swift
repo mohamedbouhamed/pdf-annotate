@@ -7,6 +7,7 @@
 
 import SwiftUI
 import PDFKit
+import PencilKit
 
 // UIViewRepresentable pour intégrer PDFView avec support complet des annotations
 struct PDFKitView: UIViewRepresentable {
@@ -95,13 +96,20 @@ struct QuranPDFView: View {
     @StateObject private var viewModel = QuranPDFViewModel()
     @State private var isAnnotationMode = false
     @State private var showPageSelector = false
+    @State private var drawings: [Int: PKDrawing] = [:] // Dessins par page
 
     var body: some View {
         ZStack {
-            // Vue PDF
+            // Vue PDF avec annotations et page curl natif
             if let document = viewModel.pdfDocument {
-                PDFKitView(pdfDocument: document, currentPage: $viewModel.currentPage)
-                    .edgesIgnoringSafeArea(.all)
+                QuranPageCurlView(
+                    pdfDocument: document,
+                    currentPage: $viewModel.currentPage,
+                    isAnnotationMode: $isAnnotationMode,
+                    isLandscape: $viewModel.isLandscape,
+                    drawings: $drawings
+                )
+                .edgesIgnoringSafeArea(.all)
             } else {
                 // Vue de chargement
                 VStack {
@@ -119,7 +127,9 @@ struct QuranPDFView: View {
                 HStack {
                     // Bouton mode annotation
                     Button(action: {
-                        isAnnotationMode.toggle()
+                        withAnimation {
+                            isAnnotationMode.toggle()
+                        }
                     }) {
                         Image(systemName: isAnnotationMode ? "pencil.circle.fill" : "pencil.circle")
                             .font(.title2)
@@ -163,42 +173,6 @@ struct QuranPDFView: View {
                 .padding()
 
                 Spacer()
-
-                // Barre de navigation inférieure
-                HStack(spacing: 40) {
-                    // Bouton page suivante (RTL = gauche)
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            viewModel.nextPage()
-                        }
-                    }) {
-                        Image(systemName: "chevron.left")
-                            .font(.title)
-                            .foregroundColor(viewModel.currentPage > 0 ? .primary : .gray)
-                            .padding()
-                            .background(Color(.systemBackground).opacity(0.8))
-                            .clipShape(Circle())
-                            .shadow(radius: 2)
-                    }
-                    .disabled(viewModel.currentPage == 0)
-
-                    // Bouton page précédente (RTL = droite)
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            viewModel.previousPage()
-                        }
-                    }) {
-                        Image(systemName: "chevron.right")
-                            .font(.title)
-                            .foregroundColor(viewModel.currentPage < viewModel.totalPages - 1 ? .primary : .gray)
-                            .padding()
-                            .background(Color(.systemBackground).opacity(0.8))
-                            .clipShape(Circle())
-                            .shadow(radius: 2)
-                    }
-                    .disabled(viewModel.currentPage == viewModel.totalPages - 1)
-                }
-                .padding(.bottom, 30)
             }
         }
         .sheet(isPresented: $showPageSelector) {

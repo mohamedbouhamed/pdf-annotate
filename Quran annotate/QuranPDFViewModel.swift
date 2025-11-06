@@ -8,14 +8,37 @@
 import Foundation
 import PDFKit
 import SwiftUI
+import Combine
 
 class QuranPDFViewModel: ObservableObject {
     @Published var pdfDocument: PDFDocument?
     @Published var currentPage: Int = 0
     @Published var totalPages: Int = 0
+    @Published var isLandscape: Bool = false
+
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
         loadPDF()
+        setupOrientationObserver()
+    }
+
+    private func setupOrientationObserver() {
+        NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)
+            .sink { [weak self] _ in
+                self?.updateOrientation()
+            }
+            .store(in: &cancellables)
+
+        // Mise à jour initiale
+        updateOrientation()
+    }
+
+    private func updateOrientation() {
+        let orientation = UIDevice.current.orientation
+        DispatchQueue.main.async {
+            self.isLandscape = orientation.isLandscape
+        }
     }
 
     private func loadPDF() {
