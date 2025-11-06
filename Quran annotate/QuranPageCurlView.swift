@@ -10,7 +10,7 @@ import UIKit
 import PDFKit
 import PencilKit
 
-// ViewController vide pour accompagner la page 0 en mode paysage
+// ViewController vide pour accompagner la page 0
 class EmptyPageViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -80,7 +80,7 @@ class QuranPageCurlViewController: UIPageViewController, UIPageViewControllerDat
             // Dans chaque paire : impair à droite, pair à gauche
 
             if pageIndex == 0 {
-                // Page 0 avec une page vide (spine .mid exige 2 VCs)
+                // Page 0 avec page vide (spine .mid exige 2 VCs)
                 var controllers: [UIViewController] = []
 
                 // Page vide à gauche
@@ -304,7 +304,7 @@ class QuranPageCurlViewController: UIPageViewController, UIPageViewControllerDat
             let currentIndex = pageVC.pageIndex
 
             if currentIndex == 0 {
-                // Page 0 → retourner nil (début du livre, avec page vide à côté)
+                // Page 0 → retourner nil (début du livre)
                 return nil
             } else if currentIndex == 1 {
                 // Page 1 (première page de texte) → retourner à la page vide (qui accompagne la page 0)
@@ -417,6 +417,9 @@ class PDFPageWithAnnotationViewController: UIViewController {
         pdfView.autoScales = true
         pdfView.displayMode = .singlePage
         pdfView.backgroundColor = .systemBackground
+
+        // Enlever les ombres qui créent des marges
+        pdfView.pageShadowsEnabled = false
 
         // Canvas View
         self.canvasView = PassthroughCanvasView()
