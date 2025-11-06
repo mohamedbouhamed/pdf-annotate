@@ -170,6 +170,8 @@ struct QuranPDFView: View {
                             .clipShape(Circle())
                             .shadow(radius: 2)
                     }
+
+                    Spacer()
                 }
                 .padding()
 
