@@ -97,11 +97,35 @@ struct QuranPDFView: View {
     @State private var isAnnotationMode = false
     @State private var showPageSelector = false
     @State private var drawings: [Int: PKDrawing] = [:] // Dessins par page
+    @State private var selectedPDF: String? = nil
+    @State private var showSplashScreen = true
 
     var body: some View {
         ZStack {
+            // Splash screen initial
+            if showSplashScreen {
+                SplashScreenView(isLoading: $showSplashScreen)
+                    .transition(.opacity)
+            }
+            // Écran de sélection du PDF
+            else if selectedPDF == nil {
+                PDFSelectionView(selectedPDF: $selectedPDF)
+                    .transition(.opacity)
+            }
+            // Vue de chargement
+            else if viewModel.isLoading {
+                VStack {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    Text("تحميل القرآن الكريم...")
+                        .font(.headline)
+                        .padding(.top)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemBackground))
+            }
             // Vue PDF avec annotations et page curl natif
-            if let document = viewModel.pdfDocument {
+            else if let document = viewModel.pdfDocument {
                 QuranPageCurlView(
                     pdfDocument: document,
                     currentPage: $viewModel.currentPage,
@@ -111,71 +135,39 @@ struct QuranPDFView: View {
                 )
                 .id(viewModel.isLandscape) // Forcer recréation quand l'orientation change
                 .edgesIgnoringSafeArea(.all)
-            } else {
-                // Vue de chargement
-                VStack {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                    Text("Chargement du Coran...")
-                        .font(.headline)
-                        .padding(.top)
-                }
             }
 
-            // Overlay des contrôles
-            VStack {
-                // Barre supérieure
-                HStack {
-                    // Bouton mode annotation
-                    Button(action: {
-                        withAnimation {
-                            isAnnotationMode.toggle()
+            // Overlay des contrôles (seulement si PDF chargé)
+            if viewModel.pdfDocument != nil {
+                VStack {
+                    // Barre supérieure
+                    HStack {
+                        // Bouton mode annotation
+                        Button(action: {
+                            withAnimation {
+                                isAnnotationMode.toggle()
+                            }
+                        }) {
+                            Image(systemName: isAnnotationMode ? "pencil.circle.fill" : "pencil.circle")
+                                .font(.title2)
+                                .foregroundColor(isAnnotationMode ? .blue : .primary)
+                                .padding()
+                                .background(Color(.systemBackground).opacity(0.8))
+                                .clipShape(Circle())
+                                .shadow(radius: 2)
                         }
-                    }) {
-                        Image(systemName: isAnnotationMode ? "pencil.circle.fill" : "pencil.circle")
-                            .font(.title2)
-                            .foregroundColor(isAnnotationMode ? .blue : .primary)
-                            .padding()
-                            .background(Color(.systemBackground).opacity(0.8))
-                            .clipShape(Circle())
-                            .shadow(radius: 2)
+
+                        Spacer()
                     }
-
-                    Spacer()
-
-                    // Indicateur de page
-                    Button(action: {
-                        showPageSelector.toggle()
-                    }) {
-                        Text("صفحة \(viewModel.currentPage + 1) / \(viewModel.totalPages)")
-                            .font(.headline)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Color(.systemBackground).opacity(0.8))
-                            .cornerRadius(20)
-                            .shadow(radius: 2)
-                    }
-
-                    Spacer()
-
-                    // Bouton info
-                    Button(action: {
-                        // Action info
-                    }) {
-                        Image(systemName: "info.circle")
-                            .font(.title2)
-                            .foregroundColor(.primary)
-                            .padding()
-                            .background(Color(.systemBackground).opacity(0.8))
-                            .clipShape(Circle())
-                            .shadow(radius: 2)
-                    }
+                    .padding()
 
                     Spacer()
                 }
-                .padding()
-
-                Spacer()
+            }
+        }
+        .onChange(of: selectedPDF) { oldValue, newValue in
+            if let pdfName = newValue {
+                viewModel.loadPDF(named: pdfName)
             }
         }
         .sheet(isPresented: $showPageSelector) {

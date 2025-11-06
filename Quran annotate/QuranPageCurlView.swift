@@ -10,6 +10,14 @@ import UIKit
 import PDFKit
 import PencilKit
 
+// ViewController vide pour accompagner la page 0 en mode paysage
+class EmptyPageViewController: UIViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+    }
+}
+
 // UIPageViewController avec page curl pour le Coran
 class QuranPageCurlViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
 
@@ -30,11 +38,13 @@ class QuranPageCurlViewController: UIPageViewController, UIPageViewControllerDat
         let spineLocation: UIPageViewController.SpineLocation = isLandscape ? .mid : .max
 
         // IMPORTANT: transitionStyle = .pageCurl pour l'animation de livre réaliste
+        // interPageSpacing: 0 pour coller les pages en mode paysage
         super.init(
             transitionStyle: .pageCurl,
             navigationOrientation: .horizontal,
             options: [
-                .spineLocation: NSNumber(value: spineLocation.rawValue)
+                .spineLocation: NSNumber(value: spineLocation.rawValue),
+                .interPageSpacing: 0  // Pas d'espace entre les pages
             ]
         )
 
@@ -65,13 +75,33 @@ class QuranPageCurlViewController: UIPageViewController, UIPageViewControllerDat
 
         if isLandscape {
             // En paysage : logique livre arabe
-            // Page 0 (couverture) : seule, centrée
+            // Page 0 (couverture) : avec une page vide à gauche
             // Pages suivantes : par paires (1,2), (3,4), (5,6)...
             // Dans chaque paire : impair à droite, pair à gauche
 
             if pageIndex == 0 {
-                // Page 0 seule (couverture)
-                viewControllers = createViewControllers(startingAt: 0, count: 1)
+                // Page 0 avec une page vide (spine .mid exige 2 VCs)
+                var controllers: [UIViewController] = []
+
+                // Page vide à gauche
+                let emptyVC = EmptyPageViewController()
+                controllers.append(emptyVC)
+
+                // Page 0 à droite
+                if let page0 = pdfDocument.page(at: 0) {
+                    let page0VC = PDFPageWithAnnotationViewController(
+                        page: page0,
+                        pageIndex: 0,
+                        drawing: drawings[0] ?? PKDrawing(),
+                        isAnnotationMode: isAnnotationMode
+                    )
+                    page0VC.onDrawingChanged = { [weak self] drawing in
+                        self?.drawings[0] = drawing
+                    }
+                    controllers.append(page0VC)
+                }
+
+                viewControllers = controllers
             } else {
                 // Paires : (1,2), (3,4), (5,6)...
                 // Calculer le début de la paire : pour index impair, garder tel quel ; pour index pair > 0, prendre index-1
@@ -173,19 +203,35 @@ class QuranPageCurlViewController: UIPageViewController, UIPageViewControllerDat
     // MARK: - UIPageViewControllerDataSource
 
     func pageViewController(_ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? {
+        // Vérifier si c'est la page vide accompagnant la page 0
+        if viewController is EmptyPageViewController {
+            // Page vide → aller à la première paire (1,2)
+            guard let pdfDocument = pdfDocument, let page1 = pdfDocument.page(at: 1) else { return nil }
+            let page1VC = PDFPageWithAnnotationViewController(
+                page: page1,
+                pageIndex: 1,
+                drawing: drawings[1] ?? PKDrawing(),
+                isAnnotationMode: isAnnotationMode
+            )
+            page1VC.onDrawingChanged = { [weak self] drawing in
+                self?.drawings[1] = drawing
+            }
+            return page1VC
+        }
+
         guard let pageVC = viewController as? PDFPageWithAnnotationViewController,
               let pdfDocument = pdfDocument else { return nil }
 
         if isLandscape {
-            // Logique livre arabe avec page 0 seule
-            // Page 0 : seule (couverture)
+            // Logique livre arabe avec page 0 + page vide
+            // Page 0 : avec page vide à gauche
             // Paires : (1,2), (3,4), (5,6)... où impair=droite, pair=gauche
             // viewControllerBefore = avancer (pour RTL)
 
             let currentIndex = pageVC.pageIndex
 
             if currentIndex == 0 {
-                // Page 0 (couverture) → aller à la page 1 (début de la première paire)
+                // Page 0 (couverture) → aller à la page 1 (première paire de contenu)
                 guard let page1 = pdfDocument.page(at: 1) else { return nil }
                 let vc1 = PDFPageWithAnnotationViewController(
                     page: page1,
@@ -242,28 +288,27 @@ class QuranPageCurlViewController: UIPageViewController, UIPageViewControllerDat
     }
 
     func pageViewController(_ pageViewController: UIPageViewController, viewControllerAfter viewController: UIViewController) -> UIViewController? {
+        // Vérifier si c'est la page vide accompagnant la page 0
+        if viewController is EmptyPageViewController {
+            // Page vide → retourner nil (pas de page avant la couverture)
+            return nil
+        }
+
         guard let pageVC = viewController as? PDFPageWithAnnotationViewController,
               let pdfDocument = pdfDocument else { return nil }
 
         if isLandscape {
-            // Logique livre arabe avec page 0 seule
+            // Logique livre arabe avec page 0 + page vide
             // viewControllerAfter = reculer (pour RTL)
 
             let currentIndex = pageVC.pageIndex
 
-            if currentIndex == 1 {
-                // Page 1 (première page de texte) → retourner à la page 0 (couverture)
-                guard let page0 = pdfDocument.page(at: 0) else { return nil }
-                let vc0 = PDFPageWithAnnotationViewController(
-                    page: page0,
-                    pageIndex: 0,
-                    drawing: drawings[0] ?? PKDrawing(),
-                    isAnnotationMode: isAnnotationMode
-                )
-                vc0.onDrawingChanged = { [weak self] drawing in
-                    self?.drawings[0] = drawing
-                }
-                return vc0
+            if currentIndex == 0 {
+                // Page 0 → retourner nil (début du livre, avec page vide à côté)
+                return nil
+            } else if currentIndex == 1 {
+                // Page 1 (première page de texte) → retourner à la page vide (qui accompagne la page 0)
+                return EmptyPageViewController()
             } else if currentIndex % 2 == 0 {
                 // Page PAIRE (gauche, ex: 2,4,6) → retourner page IMPAIRE adjacente (droite, même paire)
                 let rightIndex = currentIndex - 1
@@ -314,11 +359,19 @@ class QuranPageCurlViewController: UIPageViewController, UIPageViewControllerDat
         if completed {
             if isLandscape {
                 // En mode paysage avec logique livre arabe
-                // - Page 0 : seule
+                // - Page 0 : avec page vide
                 // - Paires : (1,2), (3,4), (5,6)... où impair=droite
                 // Reporter l'index de la page de DROITE (impair pour paires, 0 si couverture)
                 if let vcs = viewControllers {
                     for vc in vcs {
+                        // Ignorer les pages vides
+                        if vc is EmptyPageViewController {
+                            // Si on trouve une page vide, on est sur la page 0
+                            currentPageIndex = 0
+                            onPageChanged?(0)
+                            break
+                        }
+
                         if let pageVC = vc as? PDFPageWithAnnotationViewController {
                             // Si c'est la page 0 ou une page impaire (page de droite)
                             if pageVC.pageIndex == 0 || pageVC.pageIndex % 2 == 1 {

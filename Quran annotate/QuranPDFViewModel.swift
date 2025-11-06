@@ -15,11 +15,11 @@ class QuranPDFViewModel: ObservableObject {
     @Published var currentPage: Int = 0
     @Published var totalPages: Int = 0
     @Published var isLandscape: Bool = false
+    @Published var isLoading: Bool = false
 
     private var cancellables = Set<AnyCancellable>()
 
     init() {
-        loadPDF()
         setupOrientationObserver()
     }
 
@@ -41,20 +41,60 @@ class QuranPDFViewModel: ObservableObject {
         }
     }
 
-    private func loadPDF() {
-        guard let url = Bundle.main.url(forResource: "Quran", withExtension: "pdf") else {
-            print("❌ Erreur: Impossible de trouver le fichier PDF")
-            return
-        }
+    func loadPDF(named pdfName: String) {
+        print("🔍 Tentative de chargement du PDF: \(pdfName)")
+        isLoading = true
 
-        guard let document = PDFDocument(url: url) else {
-            print("❌ Erreur: Impossible de charger le PDF")
-            return
-        }
+        // Charger en background pour ne pas bloquer l'UI
+        DispatchQueue.global(qos: .userInitiated).async {
+            // Lister tous les PDFs dans le bundle pour débugger
+            if let bundlePath = Bundle.main.resourcePath {
+                print("📂 Bundle path: \(bundlePath)")
+                do {
+                    let items = try FileManager.default.contentsOfDirectory(atPath: bundlePath)
+                    let pdfs = items.filter { $0.hasSuffix(".pdf") }
+                    print("📄 PDFs trouvés dans le bundle: \(pdfs)")
+                } catch {
+                    print("❌ Erreur lors de la lecture du bundle: \(error)")
+                }
+            }
 
-        self.pdfDocument = document
-        self.totalPages = document.pageCount
-        print("✅ PDF chargé avec succès: \(totalPages) pages")
+            guard let url = Bundle.main.url(forResource: pdfName, withExtension: "pdf") else {
+                print("❌ Erreur: Impossible de trouver le fichier PDF: \(pdfName).pdf")
+                print("🔍 Recherche dans le bundle...")
+                // Essayer de trouver le fichier avec n'importe quelle extension
+                if let allURLs = Bundle.main.urls(forResourcesWithExtension: "pdf", subdirectory: nil) {
+                    print("📚 Tous les PDFs dans le bundle:")
+                    for pdfURL in allURLs {
+                        print("  - \(pdfURL.lastPathComponent)")
+                    }
+                }
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                }
+                return
+            }
+
+            print("✅ PDF trouvé à l'URL: \(url)")
+
+            guard let document = PDFDocument(url: url) else {
+                print("❌ Erreur: Impossible de charger le PDF depuis l'URL: \(url)")
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                }
+                return
+            }
+
+            print("📖 Document PDF créé avec \(document.pageCount) pages")
+
+            DispatchQueue.main.async {
+                self.pdfDocument = document
+                self.totalPages = document.pageCount
+                self.currentPage = 0
+                self.isLoading = false
+                print("✅ PDF chargé avec succès: \(self.totalPages) pages")
+            }
+        }
     }
 
     func goToPage(_ pageNumber: Int) {
