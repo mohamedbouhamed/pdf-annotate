@@ -166,6 +166,18 @@ class QuranPageCurlViewController: UIPageViewController, UIPageViewControllerDat
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
+        view.clipsToBounds = true  // Force le curl à rester dans les limites de la vue
+    }
+
+    func goToNextPage() {
+        guard let pdfDocument = pdfDocument,
+              currentPageIndex < pdfDocument.pageCount - 1 else { return }
+        goToPage(currentPageIndex + 1, animated: true)
+    }
+
+    func goToPreviousPage() {
+        guard currentPageIndex > 0 else { return }
+        goToPage(currentPageIndex - 1, animated: true)
     }
 
     func goToPage(_ pageIndex: Int, animated: Bool = false) {

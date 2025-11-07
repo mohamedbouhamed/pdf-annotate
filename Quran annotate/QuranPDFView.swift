@@ -125,16 +125,81 @@ struct QuranPDFView: View {
             }
             // Vue PDF avec annotations et page curl natif
             else if let document = viewModel.pdfDocument {
-                QuranPageCurlView(
-                    pdfDocument: document,
-                    currentPage: $viewModel.currentPage,
-                    isAnnotationMode: $isAnnotationMode,
-                    isLandscape: $viewModel.isLandscape,
-                    drawings: $drawings,
-                    coordinatorRef: $coordinatorRef
-                )
-                .id(orientationKey) // Forcer recréation quand l'orientation change
-                .edgesIgnoringSafeArea(.all)
+                GeometryReader { geometry in
+                    let verticalMargin: CGFloat = 1 // Marge ultra-minimale en haut et bas
+                    let pdfHeight = geometry.size.height - (verticalMargin * 2)
+
+                    // Calculer la largeur du PDF en fonction de son aspect ratio
+                    let pdfWidth: CGFloat = {
+                        if let firstPage = document.page(at: 0) {
+                            let pageRect = firstPage.bounds(for: .mediaBox)
+                            let aspectRatio = pageRect.width / pageRect.height
+
+                            if viewModel.isLandscape {
+                                // En paysage : 2 pages côte à côte
+                                return pdfHeight * aspectRatio * 2
+                            } else {
+                                // En portrait : 1 page
+                                return pdfHeight * aspectRatio
+                            }
+                        }
+                        return geometry.size.width
+                    }()
+
+                    let leftMargin = (geometry.size.width - pdfWidth) / 2
+                    let rightMargin = (geometry.size.width - pdfWidth) / 2
+
+                    ZStack {
+                        // Zone tactile gauche (pour avancer en RTL avec curl)
+                        if leftMargin > 0 {
+                            Color.clear
+                                .frame(width: leftMargin, height: geometry.size.height)
+                                .position(x: leftMargin / 2, y: geometry.size.height / 2)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    // En RTL : gauche = avancer vers la gauche
+                                    // UIPageViewController curl vers la gauche = Previous (LTR logic)
+                                    if let coordinator = coordinatorRef,
+                                       let vc = coordinator.viewController {
+                                        vc.goToPreviousPage()
+                                    }
+                                }
+                        }
+
+                        // Zone tactile droite (pour reculer en RTL avec curl)
+                        if rightMargin > 0 {
+                            Color.clear
+                                .frame(width: rightMargin, height: geometry.size.height)
+                                .position(x: geometry.size.width - (rightMargin / 2), y: geometry.size.height / 2)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    // En RTL : droite = reculer vers la droite
+                                    // UIPageViewController curl vers la droite = Next (LTR logic)
+                                    if let coordinator = coordinatorRef,
+                                       let vc = coordinator.viewController {
+                                        vc.goToNextPage()
+                                    }
+                                }
+                        }
+
+                        // PDF au centre
+                        QuranPageCurlView(
+                            pdfDocument: document,
+                            currentPage: $viewModel.currentPage,
+                            isAnnotationMode: $isAnnotationMode,
+                            isLandscape: $viewModel.isLandscape,
+                            drawings: $drawings,
+                            coordinatorRef: $coordinatorRef
+                        )
+                        .frame(width: pdfWidth, height: pdfHeight)
+                        .background(Color.white) // Background blanc pour le PDF
+                        .clipped() // Limite strictement le curl à la zone du PDF
+                        .cornerRadius(2) // Légèrement arrondi pour définir les bords
+                        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2) // Ombre pour bien voir la zone du PDF
+                        .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                        .id(orientationKey) // Forcer recréation quand l'orientation change
+                    }
+                }
             }
 
             // Overlay des contrôles (seulement si PDF chargé)
