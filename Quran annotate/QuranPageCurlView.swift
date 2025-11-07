@@ -169,18 +169,7 @@ class QuranPageCurlViewController: UIPageViewController, UIPageViewControllerDat
         view.clipsToBounds = true  // Force le curl à rester dans les limites de la vue
     }
 
-    func goToNextPage() {
-        guard let pdfDocument = pdfDocument,
-              currentPageIndex < pdfDocument.pageCount - 1 else { return }
-        goToPage(currentPageIndex + 1, animated: true)
-    }
-
-    func goToPreviousPage() {
-        guard currentPageIndex > 0 else { return }
-        goToPage(currentPageIndex - 1, animated: true)
-    }
-
-    func goToPage(_ pageIndex: Int, animated: Bool = false) {
+    func goToPage(_ pageIndex: Int, animated: Bool = false, direction: UIPageViewController.NavigationDirection = .forward) {
         guard let pdfDocument = pdfDocument,
               pageIndex >= 0,
               pageIndex < pdfDocument.pageCount else { return }
@@ -225,14 +214,14 @@ class QuranPageCurlViewController: UIPageViewController, UIPageViewControllerDat
         }
 
         guard !viewControllers.isEmpty else { return }
-        
+
         // S'assurer qu'on a le bon nombre de VCs
         if isLandscape && viewControllers.count != 2 {
             print("⚠️ Erreur: Paysage nécessite 2 VCs, seulement \(viewControllers.count) fourni(s)")
             return
         }
 
-        setViewControllers(viewControllers, direction: .forward, animated: animated)
+        setViewControllers(viewControllers, direction: direction, animated: animated)
     }
 
     private func createPageViewController(for pageIndex: Int, page: PDFPage) -> PDFPageWithAnnotationViewController {

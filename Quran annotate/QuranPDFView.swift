@@ -150,34 +150,30 @@ struct QuranPDFView: View {
                     let rightMargin = (geometry.size.width - pdfWidth) / 2
 
                     ZStack {
-                        // Zone tactile gauche (pour avancer en RTL avec curl)
+                        // Zone tactile gauche (pour reculer en RTL)
                         if leftMargin > 0 {
                             Color.clear
                                 .frame(width: leftMargin, height: geometry.size.height)
                                 .position(x: leftMargin / 2, y: geometry.size.height / 2)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
-                                    // En RTL : gauche = avancer vers la gauche
-                                    // UIPageViewController curl vers la gauche = Previous (LTR logic)
-                                    if let coordinator = coordinatorRef,
-                                       let vc = coordinator.viewController {
-                                        vc.goToPreviousPage()
+                                    // RTL: tap gauche = reculer vers les pages inférieures
+                                    if viewModel.currentPage > 0 {
+                                        viewModel.currentPage -= 1
                                     }
                                 }
                         }
 
-                        // Zone tactile droite (pour reculer en RTL avec curl)
+                        // Zone tactile droite (pour avancer en RTL)
                         if rightMargin > 0 {
                             Color.clear
                                 .frame(width: rightMargin, height: geometry.size.height)
                                 .position(x: geometry.size.width - (rightMargin / 2), y: geometry.size.height / 2)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
-                                    // En RTL : droite = reculer vers la droite
-                                    // UIPageViewController curl vers la droite = Next (LTR logic)
-                                    if let coordinator = coordinatorRef,
-                                       let vc = coordinator.viewController {
-                                        vc.goToNextPage()
+                                    // RTL: tap droite = avancer vers les pages supérieures
+                                    if viewModel.currentPage < viewModel.totalPages - 1 {
+                                        viewModel.currentPage += 1
                                     }
                                 }
                         }
