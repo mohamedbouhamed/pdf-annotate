@@ -506,24 +506,28 @@ class PDFPageWithAnnotationViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
 
-        // Calculer et fixer le zoom pour adapter la page à la vue
-        if let page = pdfView.document?.page(at: 0) {
-            let pageRect = page.bounds(for: .mediaBox)
-            let viewSize = pdfView.bounds.size
+        guard let page = pdfView.document?.page(at: 0) else { return }
 
-            // Calculer le facteur de zoom pour adapter la page à la hauteur de la vue
-            let scaleHeight = viewSize.height / pageRect.height
-            let scaleWidth = viewSize.width / pageRect.width
+        let pageRect = page.bounds(for: .mediaBox)
+        let viewSize = pdfView.bounds.size
 
-            // Utiliser le plus petit facteur pour que toute la page soit visible
-            let scale = min(scaleHeight, scaleWidth)
+        // Calcul du zoom pour que la page tienne exactement dans la vue
+        let scaleHeight = viewSize.height / pageRect.height
+        let scaleWidth = viewSize.width / pageRect.width
+        let scale = min(scaleHeight, scaleWidth)
 
-            // Fixer le zoom (scaleFactor) de manière permanente
-            pdfView.scaleFactor = scale
-            pdfView.minScaleFactor = scale
-            pdfView.maxScaleFactor = scale
-        }
+        // Fixer le zoom et bloquer tout mouvement
+        pdfView.scaleFactor = scale
+        pdfView.minScaleFactor = scale
+        pdfView.maxScaleFactor = scale
+
+        // Bloquer tout scroll / interaction
+        pdfView.isUserInteractionEnabled = false
+        pdfView.displaysPageBreaks = false
+        pdfView.autoScales = false
     }
+
+
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
